@@ -1,7 +1,17 @@
 import random
 import create
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from ReadSensor import test_sensor
 
 #testing value: time and distance
+
+#read data from sensor from test_sensor.py
+
+t,p = test_sensor.readFromSensor()
+
+# go with my testing data
 vNum = []
 vTime = []
 Num = 50
