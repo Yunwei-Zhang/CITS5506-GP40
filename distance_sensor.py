@@ -2,32 +2,54 @@ import RPi.GPIO as GPIO
 import time
 from datetime import datetime
 
-def detect(t,e,s):
+TRIGGER1 = 7
+TRIGGER2 = 29
+ECHO1 = 11
+ECHO2 = 35
+
+def detect():
     #GPIO.cleanup()
     try:
         GPIO.setmode(GPIO.BOARD)
-        PIN_TRIGGER = t #7
-        PIN_ECHO = e #11
-        GPIO.setup(PIN_TRIGGER, GPIO.OUT)
-        GPIO.setup(PIN_ECHO, GPIO.IN)
+        GPIO.setup(TRIGGER1, GPIO.OUT)
+        GPIO.setup(ECHO1, GPIO.IN)
+        GPIO.setup(TRIGGER2, GPIO.OUT)
+        GPIO.setup(ECHO2, GPIO.IN)
 
-        GPIO.output(PIN_TRIGGER, GPIO.LOW)
-        time.sleep(0.3)
+        GPIO.output(TRIGGER1, GPIO.LOW)
+        time.sleep(0.5)
 
 
-        GPIO.output(PIN_TRIGGER, GPIO.HIGH)
+        GPIO.output(TRIGGER1, GPIO.HIGH)
+        GPIO.output(TRIGGER2, GPIO.HIGH)
         time.sleep(0.00001)
-        GPIO.output(PIN_TRIGGER, GPIO.LOW)
+        GPIO.output(TRIGGER1, GPIO.LOW)
+        GPIO.output(TRIGGER2, GPIO.LOW)
 
-        while GPIO.input(PIN_ECHO)==0:
-            pulse_start_time = time.time()
-        while GPIO.input(PIN_ECHO)==1:
-            pulse_end_time = time.time()
+        pulse_start_time1 = 0
+        pulse_start_time2 = 0
+        pulse_end_time1 = 0
+        pulse_end_time2 = 0
 
-        pulse_duration = pulse_end_time - pulse_start_time
-        distance = round(pulse_duration * 17150, 2)
+        while pulse_start_time1 <= 0 or pulse_start_time2 <= 0:
+            if GPIO.input(ECHO1) == 1 and pulse_start_time1 <= 0:
+                pulse_start_time1 = time.time()
+            if GPIO.input(ECHO2) == 1 and pulse_start_time2 <= 0:
+                pulse_start_time2 = time.time()
+        while pulse_end_time1 <= 0 or pulse_end_time2 <= 0:
+            if GPIO.input(ECHO1) == 0 and pulse_end_time1 <= 0:
+                pulse_end_time1 = time.time()
+            if GPIO.input(ECHO2) == 0 and pulse_end_time2 <= 0:
+                pulse_end_time2 = time.time()
+
+        pulse_duration1 = pulse_end_time1 - pulse_start_time1
+        distance1 = round(pulse_duration1 * 17150, 2)
+
+        pulse_duration2 = pulse_end_time1 - pulse_start_time1
+        distance2 = round(pulse_duration2 * 17150, 2)
+
         time_current = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')[:-2]
-        return s, distance, time_current
+        return distance1, distance2, time_current
        
     finally:
         GPIO.cleanup()

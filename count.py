@@ -24,10 +24,9 @@ packet_start_date = datetime.now()
 packet_start_datestring = datetime.strftime(packet_start_date, "%d-%m-%Y %H:%M:%S")
 while True:
     res["target"] = "Bus"
-    # Sensor 1: Trig 4, Echo 17
-    s1, d1, t1 = ds.detect(7, 11, "sensor 1")#right
-    # Sensor 2: Trig 5, Echo 35
-    s2, d2, t2 = ds.detect(29, 35, "sensor 2")#left
+    # Sensor 1: Trig 4, Echo 17 (right).
+    # Sensor 2: Trig 5, Echo 35 (left).
+    d1, d2, t1 = ds.detect()
 
     # If state is 0, check Sensor 1 for detecting a person passing by
     if state == 0:
