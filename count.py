@@ -1,9 +1,8 @@
 import distance_sensor as ds
 import time
-import json
+import requests
 
 from datetime import datetime
-from gpiozero import LED
 
 # Initialize the current count to 0
 current_count = 0
@@ -11,10 +10,12 @@ enter_count = 0
 leave_count = 0
 
 # Define the threshold distance (less than 1 meter)
-threshold_distance = 80  # Assume 100 centimeters represent 1 meter
+threshold_distance = 120  # Assume 100 centimeters represent 1 meter
 
 # Define a variable to keep track of the previous sensor identifier
 state = 0
+counter = 0
+COUNTER_THRESH = 5
 
 dataset = []
 
@@ -24,9 +25,11 @@ packet_start_date = datetime.now()
 packet_start_datestring = datetime.strftime(packet_start_date, "%d-%m-%Y %H:%M:%S")
 while True:
     res["target"] = "Bus"
-    # Sensor 1: Trig 4, Echo 17 (right).
-    # Sensor 2: Trig 5, Echo 35 (left).
-    d1, d2, t1 = ds.detect()
+    # Sensor 1: Trig 4, Echo 17
+    #s1, d1, t1 = ds.detect(7, 11, "sensor 1")#right
+    # Sensor 2: Trig 5, Echo 35
+    #s2, d2, t2 = ds.detect(29, 35, "sensor 2")#left
+    d1, d2, t = ds.detect()
 
     # If state is 0, check Sensor 1 for detecting a person passing by
     if state == 0:
@@ -43,8 +46,11 @@ while True:
             state = 0
             enter_count += 1
             print("count++")
+        else:
+            counter += 1
             #with open('data.json','w') as json_file:
             #    json.dump(res.json_file, indent = 4)
+
     
     # If state is 2, check Sensor 1 for detecting a person passing by
     elif state == 2:
@@ -54,12 +60,14 @@ while True:
                 leave_count += 1
                 print("count--")
             state = 0
+        else:
+            counter += 1
             #with open('data.json','w') as json_file:
             #   json.dump(res,json_file, indent = 4)
 
     
     packet_end_time = time.time()
-    packet_end_date = datetime.now()
+    packet_end_date = datetime.now() #8 9 1
     packet_end_datestring = datetime.strftime(packet_end_date, "%d-%m-%Y %H:%M:%S")
     packet_duration = packet_end_time - packet_start_time
     
@@ -68,21 +76,55 @@ while True:
     print(f"Current count: {current_count}, Enter: {enter_count}, Leave: {leave_count}")
     print(f"Sensor 1: {d1}, Sensor 2: {d2}")
     print("come time: " + str(packet_start_datestring) + ", leave time: " + str(packet_end_datestring))
-    print(res)
+    #print(res)
+    
+    if counter > COUNTER_THRESH:
+        state = 0
+        counter = 0
 
-    if packet_duration > 30:
+    if packet_duration > 60:
+        #data = {
+        #    'id': '2',
+        #    'time_come': packet_start_datestring,
+        #    'time_leave': packet_end_datestring,
+        #    'people_count': current_count,
+        #    'inCount': enter_count,
+        #    'outCount': leave_count
+        #}
         data = {
-            'time_come': packet_start_datestring,
-            'time_leave': packet_end_datestring,
-            'people_count': current_count,
-            'enter_count': enter_count,
-            'leave_count': leave_count
+            "id": "2",
+            "inCount": str(enter_count),
+            "outCount": str(leave_count),
         }
         dataset.append(data)
+        
+        # Send to AWS Database
+        try:
+            api_url = 'http://3.25.181.212:3000/api/location/updateCount'
+            response = requests.patch(api_url, json=data, timeout=30)
+            status = response.status_code
+            if status != 200:
+                print('----------------------------------------------------')
+                print(f"Something went wrong: {response.json()}")
+                print('----------------------------------------------------')
+            else:
+                print('----------------------------------------------------')
+                print('Successfully sent.')
+                print('----------------------------------------------------')
+        except Exception as e:
+            print('----------------------------------------------------')
+            print(f"{e.__class__.__name__}: {e}")
+            print("Retry next time")
+            print('----------------------------------------------------')
+        else:
+            # Uncomment when actually sending data
+            enter_count = 0
+            leave_count = 0
+            packet_start_time = time.time()
+        
         res["data"] = dataset
-        packet_start_time = time.time()
-        #enter_count = 0
-        #leave_count = 0
+        
+
 
     # Wait for some time before taking the next measurement
     time.sleep(0.2)
