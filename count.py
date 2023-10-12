@@ -23,6 +23,10 @@ res = {}
 packet_start_time = time.time()
 packet_start_date = datetime.now()
 packet_start_datestring = datetime.strftime(packet_start_date, "%d-%m-%Y %H:%M:%S")
+
+# Variable to determine if the statistics shown on the UI should be reset, should be when the system first starts.
+reset = True
+
 while True:
     res["target"] = "Bus"
     # Sensor 1: Trig 4, Echo 17
@@ -93,15 +97,18 @@ while True:
         #}
         data = {
             "id": "2",
+            "startTime": str(packet_start_date.timestamp()),
+            "endTime": str(packet_end_date.timestamp()),
             "inCount": str(enter_count),
             "outCount": str(leave_count),
+            "reset": str(reset),
         }
         dataset.append(data)
         
         # Send to AWS Database
         try:
-            api_url = 'http://3.25.181.212:3000/api/location/updateCount'
-            response = requests.patch(api_url, json=data, timeout=30)
+            api_url = 'http://localhost:3000/api/location/updateCount'
+            response = requests.patch(api_url, json=data, timeout=5)
             status = response.status_code
             if status != 200:
                 print('----------------------------------------------------')
@@ -121,6 +128,8 @@ while True:
             enter_count = 0
             leave_count = 0
             packet_start_time = time.time()
+            if reset:
+                reset = False
         
         res["data"] = dataset
         

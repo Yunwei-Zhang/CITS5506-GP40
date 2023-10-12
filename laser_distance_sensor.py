@@ -17,6 +17,9 @@ packet_start_time = time.time()
 packet_start_date = datetime.now()
 packet_start_datestring = datetime.strftime(packet_start_date, "%d-%m-%Y %H:%M:%S")
 
+# Variable to determine if the statistics shown on the UI should be reset, should be when the system first starts.
+reset = True
+
 while True:
     dist = distSensor.read()
     dist = dist / 10
@@ -41,14 +44,17 @@ while True:
         # Only inCount or outCount can be updated due to unidirectional behaviour of this system.
         data = {
             "id": "2",
+            "startTime": str(packet_start_date.timestamp()),
+            "endTime": str(packet_end_date.timestamp()),
             "inCount": str(count),
             "outCount": "0",
+            "reset": str(reset),
         }
         dataset.append(data)
         
         # Send to AWS Database
         try:
-            api_url = 'http://3.25.181.212:3000/api/location/updateCount'
+            api_url = 'http://localhost:3000/api/location/updateCount'
             response = requests.patch(api_url, json=data, timeout=5)
             status = response.status_code
             if status != 200:
@@ -68,6 +74,8 @@ while True:
             # Uncomment when actually sending data
             count = 0
             packet_start_time = time.time()
+            if reset:
+                reset = False
     
     time.sleep(0.1)
 
