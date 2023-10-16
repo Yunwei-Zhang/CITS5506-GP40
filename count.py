@@ -8,9 +8,14 @@ from datetime import datetime
 current_count = 0
 enter_count = 0
 leave_count = 0
+detected = False
 
 # Define the threshold distance (less than 1 meter)
 threshold_distance = 120  # Assume 100 centimeters represent 1 meter
+
+# Define the threshold for the time duration for each packet
+THRESHOLD_TIME = 30
+threshold_time = THRESHOLD_TIME
 
 # Define a variable to keep track of the previous sensor identifier
 state = 0
@@ -49,6 +54,7 @@ while True:
             current_count += 1
             state = 0
             enter_count += 1
+            detected = True
             print("count++")
         else:
             counter += 1
@@ -62,6 +68,7 @@ while True:
             if current_count >= 1:
                 current_count -= 1
                 leave_count += 1
+                detected = True
                 print("count--")
             state = 0
         else:
@@ -75,18 +82,20 @@ while True:
     packet_end_datestring = datetime.strftime(packet_end_date, "%d-%m-%Y %H:%M:%S")
     packet_duration = packet_end_time - packet_start_time
     
-    # Print the current count of people
-    print("status:  " + str(state))
-    print(f"Current count: {current_count}, Enter: {enter_count}, Leave: {leave_count}")
-    print(f"Sensor 1: {d1}, Sensor 2: {d2}")
-    print("come time: " + str(packet_start_datestring) + ", leave time: " + str(packet_end_datestring))
-    #print(res)
+    if detected:
+        # Print the current count of people
+        print("status:  " + str(state))
+        print(f"Current count: {current_count}, Enter: {enter_count}, Leave: {leave_count}")
+        print(f"Sensor 1: {d1}, Sensor 2: {d2}")
+        print("come time: " + str(packet_start_datestring) + ", leave time: " + str(packet_end_datestring))
+        #print(res)
+        detected = False
     
     if counter > COUNTER_THRESH:
         state = 0
         counter = 0
 
-    if packet_duration > 60:
+    if packet_duration > threshold_time and (enter_count > 0 or leave_count > 0):
         #data = {
         #    'id': '2',
         #    'time_come': packet_start_datestring,
@@ -97,23 +106,32 @@ while True:
         #}
         data = {
             "id": "2",
-            "startTime": str(packet_start_date.timestamp()),
-            "endTime": str(packet_end_date.timestamp()),
+            "startTime": str(int(packet_start_date.timestamp() * 1000)),
+            "endTime": str(int(packet_end_date.timestamp() * 1000)),
             "inCount": str(enter_count),
             "outCount": str(leave_count),
             "reset": str(reset),
         }
         dataset.append(data)
         
+        # If dataset exceeds a size, keep most recent data on system
+        if len(dataset) > 100:
+            dataset.pop(0)
+        
         # Send to AWS Database
         try:
-            api_url = 'http://localhost:3000/api/location/updateCount'
+            api_url = 'http://3.27.155.65:3000/api/location/updateCount'
+            print("\nSending data...")
             response = requests.patch(api_url, json=data, timeout=5)
             status = response.status_code
             if status != 200:
                 print('----------------------------------------------------')
                 print(f"Something went wrong: {response.json()}")
                 print('----------------------------------------------------')
+                
+                # Wait for another set time duration before sending again
+                threshold_time += THRESHOLD_TIME
+                continue
             else:
                 print('----------------------------------------------------')
                 print('Successfully sent.')
@@ -123,10 +141,14 @@ while True:
             print(f"{e.__class__.__name__}: {e}")
             print("Retry next time")
             print('----------------------------------------------------')
+            
+            # Wait for another set time duration before sending again
+            threshold_time += THRESHOLD_TIME
         else:
             # Uncomment when actually sending data
             enter_count = 0
             leave_count = 0
+            threshold_time = THRESHOLD_TIME
             packet_start_time = time.time()
             if reset:
                 reset = False
